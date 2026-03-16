@@ -1,0 +1,61 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # ─── CI: Build & Push Image ───────────────────────────────
+  build:
+    name: Build & Push to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}  # auto-provided, no setup needed
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/joydeep-net/next-js-social-media-app:latest
+
+  # ─── CD: Deploy to hlab1 ──────────────────────────────────
+  deploy:
+    name: Deploy to hlab1
+    runs-on: ubuntu-latest
+    needs: build          # only runs if build job succeeds
+
+    steps:
+      - name: SSH into hlab1 and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/social-app
+
+            # Login to GHCR to pull private image
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u joydeep-net --password-stdin
+
+            # Pull the new image
+            docker compose pull app
+
+            # Restart only the app container, leave mongodb + promtail alone
+            docker compose up -d --no-deps app
+
+            # Cleanup old images
+            docker image prune -f
