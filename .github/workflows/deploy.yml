@@ -46,7 +46,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /opt/social-app
+            cd /opt/social-app/next-js-social-media-app
 
             # Login to GHCR to pull private image
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u joydeep-net --password-stdin
