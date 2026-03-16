@@ -27,7 +27,6 @@ services:
       - MONGODB_URI=mongodb://admin:socialpass123@mongodb:27017/socialapp?authSource=admin
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_SERVICE_NAME=social-app
-      - NODE_OPTIONS=--require ./instrumentation.js
     depends_on:
       - mongodb
       - otel-collector
