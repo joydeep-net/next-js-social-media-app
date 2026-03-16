@@ -19,7 +19,12 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public* ./public/
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/instrumentation.js ./instrumentation.js
+# Copy OTel packages needed by instrumentation hook
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/@opentelemetry ./node_modules/@opentelemetry
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/import-in-the-middle ./node_modules/import-in-the-middle
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/require-in-the-middle ./node_modules/require-in-the-middle
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/shimmer ./node_modules/shimmer
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules/semver ./node_modules/semver
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
