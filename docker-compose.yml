@@ -1,0 +1,56 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: social-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: socialpass123
+    volumes:
+      - ./data/mongodb:/data/db
+    ports:
+      - "27017:27017"
+    labels:
+      - "logging=promtail"
+      - "app=mongodb"
+    networks:
+      - default
+      - monitoring_net
+
+  app:
+    build: .
+    container_name: social-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODB_URI=mongodb://admin:socialpass123@mongodb:27017/socialapp?authSource=admin
+    depends_on:
+      - mongodb
+    labels:
+      - "logging=promtail"
+      - "app=social-app"
+    networks:
+      - default
+      - monitoring_net
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: social-promtail
+    restart: unless-stopped
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - app
+    networks:
+      - default
+      - monitoring_net
+
+networks:
+  default:
+    name: social-app_default
+  monitoring_net:
+    external: true
