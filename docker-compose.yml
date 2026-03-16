@@ -1,4 +1,5 @@
 services:
+  # ── Application ──────────────────────────────────────────────
   mongodb:
     image: mongo:7
     container_name: social-mongo
@@ -15,7 +16,6 @@ services:
       - "app=mongodb"
     networks:
       - default
-      - monitoring_net
 
   app:
     build: .
@@ -25,15 +25,19 @@ services:
       - "3000:3000"
     environment:
       - MONGODB_URI=mongodb://admin:socialpass123@mongodb:27017/socialapp?authSource=admin
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=social-app
+      - NODE_OPTIONS=--require ./instrumentation.js
     depends_on:
       - mongodb
+      - otel-collector
     labels:
       - "logging=promtail"
       - "app=social-app"
     networks:
       - default
-      - monitoring_net
 
+  # ── Collection ───────────────────────────────────────────────
   promtail:
     image: grafana/promtail:3.0.0
     container_name: social-promtail
@@ -44,13 +48,116 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: -config.file=/etc/promtail/config.yml
     depends_on:
-      - app
+      - loki
     networks:
       - default
-      - monitoring_net
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.102.0
+    container_name: social-otel-collector
+    restart: unless-stopped
+    volumes:
+      - ./otel-collector/otel-collector-config.yml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Collector metrics
+    depends_on:
+      - tempo
+      - prometheus
+    networks:
+      - default
+
+  # ── Storage ──────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: social-loki
+    restart: unless-stopped
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - default
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: social-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+      - --storage.tsdb.retention.time=7d
+    depends_on:
+      - alertmanager
+    networks:
+      - default
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: social-tempo
+    restart: unless-stopped
+    volumes:
+      - ./tempo/tempo-config.yml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo HTTP
+    command: -config.file=/etc/tempo/config.yaml
+    networks:
+      - default
+
+  # ── Visualization ────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: social-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - default
+
+  # ── Alerting ─────────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: social-alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    networks:
+      - default
 
 networks:
   default:
     name: social-app_default
-  monitoring_net:
-    external: true
+
+volumes:
+  loki-data:
+  prometheus-data:
+  tempo-data:
+  grafana-data:
