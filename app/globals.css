@@ -17,7 +17,7 @@ body {
 }
 
 .header {
-  background: #1877f2;
+  background: #dc2626;
   color: white;
   padding: 15px 20px;
   text-align: center;
@@ -55,7 +55,7 @@ body {
 }
 
 .btn {
-  background: #1877f2;
+  background: #dc2626;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -66,7 +66,7 @@ body {
 }
 
 .btn:hover {
-  background: #166fe5;
+  background: #b91c1c;
 }
 
 .btn-secondary {
@@ -99,7 +99,7 @@ body {
 
 .post-author {
   font-weight: bold;
-  color: #1877f2;
+  color: #dc2626;
 }
 
 .post-date {
@@ -131,7 +131,7 @@ body {
 }
 
 .like-btn:hover {
-  color: #1877f2;
+  color: #dc2626;
 }
 
 .error {
@@ -180,10 +180,10 @@ body {
 }
 
 .readit-btn:hover {
-  color: #1877f2;
+  color: #dc2626;
 }
 
 .readit-active {
-  color: #1877f2;
+  color: #dc2626;
   font-weight: bold;
 }
