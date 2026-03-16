@@ -7,9 +7,7 @@ export async function GET(request) {
   try {
     logger.debug('Fetching posts');
     const db = await getDb();
-    // BUG: Calling undefined method on null object
-    const brokenRef = null;
-    const posts = await brokenRef.collection('posts')
+    const posts = await db.collection('posts')
       .find({})
       .sort({ createdAt: -1 })
       .limit(50)

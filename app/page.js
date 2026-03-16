@@ -9,12 +9,15 @@ export default function Home() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
+  const [viewMode, setViewMode] = useState('feed');
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       setUser(savedUser);
       fetchPosts();
+      fetchBookmarkIds(savedUser);
     }
   }, []);
 
@@ -22,6 +25,23 @@ export default function Home() {
     const res = await fetch('/api/posts');
     const data = await res.json();
     setPosts(data);
+  };
+
+  const fetchBookmarkIds = async (username) => {
+    const res = await fetch(`/api/posts/readit?username=${encodeURIComponent(username)}`);
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      setBookmarkedIds(new Set(data.map(p => p._id)));
+    }
+  };
+
+  const fetchBookmarkedPosts = async () => {
+    const res = await fetch(`/api/posts/readit?username=${encodeURIComponent(user)}`);
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      setPosts(data);
+      setBookmarkedIds(new Set(data.map(p => p._id)));
+    }
   };
 
   const handleAuth = async (e) => {
@@ -41,6 +61,7 @@ export default function Home() {
       setUsername('');
       setPassword('');
       fetchPosts();
+      fetchBookmarkIds(data.username);
     }
   };
 
@@ -48,6 +69,8 @@ export default function Home() {
     localStorage.removeItem('user');
     setUser(null);
     setPosts([]);
+    setBookmarkedIds(new Set());
+    setViewMode('feed');
   };
 
   const handlePost = async (e) => {
@@ -68,7 +91,41 @@ export default function Home() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ postId })
     });
-    fetchPosts();
+    if (viewMode === 'feed') {
+      fetchPosts();
+    } else {
+      fetchBookmarkedPosts();
+    }
+  };
+
+  const handleBookmark = async (postId) => {
+    const res = await fetch('/api/posts/readit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postId, username: user })
+    });
+    const data = await res.json();
+    setBookmarkedIds(prev => {
+      const next = new Set(prev);
+      if (data.bookmarked) {
+        next.add(postId);
+      } else {
+        next.delete(postId);
+      }
+      return next;
+    });
+    if (viewMode === 'readit') {
+      fetchBookmarkedPosts();
+    }
+  };
+
+  const switchView = (mode) => {
+    setViewMode(mode);
+    if (mode === 'feed') {
+      fetchPosts();
+    } else {
+      fetchBookmarkedPosts();
+    }
   };
 
   const formatDate = (date) => {
@@ -131,16 +188,33 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="post-form">
-        <form onSubmit={handlePost}>
-          <textarea
-            placeholder="What's on your mind?"
-            value={newPost}
-            onChange={(e) => setNewPost(e.target.value)}
-          />
-          <button type="submit" className="btn">Post</button>
-        </form>
+      <div className="view-tabs">
+        <button
+          className={`btn ${viewMode === 'feed' ? '' : 'btn-secondary'}`}
+          onClick={() => switchView('feed')}
+        >
+          Feed
+        </button>
+        <button
+          className={`btn ${viewMode === 'readit' ? '' : 'btn-secondary'}`}
+          onClick={() => switchView('readit')}
+        >
+          Read It ({bookmarkedIds.size})
+        </button>
       </div>
+
+      {viewMode === 'feed' && (
+        <div className="post-form">
+          <form onSubmit={handlePost}>
+            <textarea
+              placeholder="What's on your mind?"
+              value={newPost}
+              onChange={(e) => setNewPost(e.target.value)}
+            />
+            <button type="submit" className="btn">Post</button>
+          </form>
+        </div>
+      )}
 
       <div className="posts">
         {posts.map((post) => (
@@ -154,11 +228,19 @@ export default function Home() {
               <button className="like-btn" onClick={() => handleLike(post._id)}>
                 &#x2764; {post.likes} likes
               </button>
+              <button
+                className={`readit-btn ${bookmarkedIds.has(post._id) ? 'readit-active' : ''}`}
+                onClick={() => handleBookmark(post._id)}
+              >
+                &#x1F516; {bookmarkedIds.has(post._id) ? 'Saved' : 'Read It'}
+              </button>
             </div>
           </div>
         ))}
         {posts.length === 0 && (
-          <p style={{textAlign: 'center', color: '#65676b'}}>No posts yet. Be the first to post!</p>
+          <p style={{textAlign: 'center', color: '#65676b'}}>
+            {viewMode === 'feed' ? 'No posts yet. Be the first to post!' : 'No saved posts yet. Bookmark posts to read later!'}
+          </p>
         )}
       </div>
     </div>
