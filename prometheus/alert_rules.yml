@@ -1,0 +1,38 @@
+groups:
+  - name: social-app-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_server_request_duration_seconds_count{http_status_code=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "More than 10% of requests are returning 5xx errors for the last 2 minutes."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_server_request_duration_seconds_bucket[5m])) > 2
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency"
+          description: "95th percentile latency is above 2 seconds for the last 3 minutes."
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes > 512 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Process memory exceeds 512MB for 5 minutes."
