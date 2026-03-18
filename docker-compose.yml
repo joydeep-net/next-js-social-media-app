@@ -24,7 +24,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - MONGODB_URI=mongodb://admin:socialpass123@mongodb:27017/socialapp?authSource=admin
+      - MONGODB_URI=mongodb://admin:socialpass123@mongodb:27017/socialapp?authSource=admin&directConnection=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_SERVICE_NAME=social-app
     depends_on:
